@@ -5,19 +5,18 @@
 
 #define T 100
 
-laser_geometry::LaserProjection *projector_;
-tf::TransformListener *listener_;
-sensor_msgs::PointCloud *cloud_;
 geometry_msgs::Twist *vel_;
 
 void cmdCallback(const geometry_msgs::Twist msg){
-    //TO DO
-    return;
+    ROS_INFO("\nlinear speed: %f\nangular_speed: %f", msg.linear.x, msg.angular.z);
+
+    *vel_ = msg; //save current input velocity
 }
 
 void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_in){
-    //TO DO
+    //TO DO - need to create a PointCloud structure from LaserScan
     return;
+}
 
 int main(int argc, char* argv[]){
     ros::init(argc, argv, "SimNode");
@@ -30,6 +29,7 @@ int main(int argc, char* argv[]){
     vel.angular.x = 0;
     vel.angular.y = 0;
     vel.angular.z = 0;
+    vel_ = &vel;
 
     ros::Subscriber scan_sub = n.subscribe("/base_scan", 1000, scanCallback);
     ros::Subscriber cmd_sub = n.subscribe("/cmd_vel", 1000, cmdCallback);
@@ -40,6 +40,15 @@ int main(int argc, char* argv[]){
     while(ros::ok()){
 
         geometry_msgs::Twist vel_msg = vel; //initialize msg to be published
+
+        //do nothing if input velocity is 0
+        if(vel.linear.x == 0 && vel.linear.y == 0 && vel.linear.z == 0 &&
+            vel.angular.x == 0 && vel.angular.y == 0 && vel.angular.z == 0){
+            ros::spinOnce();
+            r.sleep();
+            continue;
+            
+        }
 
         /* DO STUFF WITH LASER SCAN TO AVOID OBSTACLES */
 
