@@ -2,9 +2,13 @@
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/LaserScan.h>
 #include "laser_geometry/laser_geometry.h"
+#include <tf/transform_listener.h>
 
 #define T 100
 
+laser_geometry::LaserProjection *projector_;
+tf::TransformListener *listener_;
+sensor_msgs::PointCloud *cloud_;
 geometry_msgs::Twist *vel_;
 
 void cmdCallback(const geometry_msgs::Twist msg){
@@ -14,8 +18,13 @@ void cmdCallback(const geometry_msgs::Twist msg){
 }
 
 void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_in){
-    //TO DO - need to create a PointCloud structure from LaserScan
-    return;
+    if(!(*listener_).waitForTransform(scan_in->header.frame_id, "/base_link", scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment), ros::Duration(1.0))){
+        return;
+    }
+
+    (*projector_).transformLaserScanToPointCloud("/base_link", *scan_in, *cloud_, *listener_); // populate a PointCloud structure from LaserScan
+    
+    ROS_INFO("\npoints[0] = (%f, %f, %f)", cloud_->points[0].x, cloud_->points[0].y, cloud_->points[0].z);
 }
 
 int main(int argc, char* argv[]){
