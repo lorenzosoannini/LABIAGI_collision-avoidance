@@ -3,6 +3,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include "laser_geometry/laser_geometry.h"
 #include <tf/transform_listener.h>
+#include <math.h>
 
 #define T 100
 
@@ -24,13 +25,16 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_in){
 
     (*projector_).transformLaserScanToPointCloud("/base_link", *scan_in, *cloud_, *listener_); // populate a PointCloud structure from LaserScan
     
-    ROS_INFO("\npoints[0] = (%f, %f, %f)", cloud_->points[0].x, cloud_->points[0].y, cloud_->points[0].z);
+    //ROS_INFO("\npoints[0] = (%f, %f, %f)", cloud_->points[0].x, cloud_->points[0].y, cloud_->points[0].z);
 }
 
 int main(int argc, char* argv[]){
     ros::init(argc, argv, "SimNode");
     ros::NodeHandle n;
 
+    laser_geometry::LaserProjection projector;
+    tf::TransformListener listener;
+    sensor_msgs::PointCloud cloud;
     geometry_msgs::Twist vel;
     vel.linear.x = 0;
     vel.linear.y = 0;
@@ -38,6 +42,9 @@ int main(int argc, char* argv[]){
     vel.angular.x = 0;
     vel.angular.y = 0;
     vel.angular.z = 0;
+    projector_ = &projector;
+    listener_ = &listener;
+    cloud_ = &cloud;
     vel_ = &vel;
 
     ros::Subscriber scan_sub = n.subscribe("/base_scan", 1000, scanCallback);
@@ -59,7 +66,17 @@ int main(int argc, char* argv[]){
             
         }
 
-        /* DO STUFF WITH LASER SCAN TO AVOID OBSTACLES */
+        /* TO BE TESTED
+
+        float pi_dist = pow(cloud.points[0].x, 2.0) + pow(cloud.points[i].y, 2.0);
+
+        float theta = atan2(-cloud.points[i].y, -cloud.points[i].x);
+        float magnitude = 1/(pi_dist);
+
+        vel_msg.linear.x += magnitude * cos(theta); //move back/forward
+        vel_msg.angular.z += magnitude * sin(theta); //rotation in (x,y) plane
+
+        */
 
         cmd_pub.publish(vel_msg);
         ROS_INFO("\nnew linear speed: %f\nnew angular_speed: %f", vel_msg.linear.x, vel_msg.angular.z);
