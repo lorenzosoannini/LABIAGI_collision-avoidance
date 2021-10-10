@@ -6,6 +6,7 @@
 #include <math.h>
 
 #define T 100
+#define COLLISION_TH 0.05
 
 laser_geometry::LaserProjection *projector_;
 tf::TransformListener *listener_;
@@ -55,8 +56,6 @@ int main(int argc, char* argv[]){
 
     while(ros::ok()){
 
-        geometry_msgs::Twist vel_msg = vel; //initialize msg to be published
-
         //do nothing if input velocity is 0
         if(vel.linear.x == 0 && vel.linear.y == 0 && vel.linear.z == 0 &&
             vel.angular.x == 0 && vel.angular.y == 0 && vel.angular.z == 0){
@@ -66,17 +65,22 @@ int main(int argc, char* argv[]){
             
         }
 
-        /* TO BE TESTED
+        geometry_msgs::Twist vel_msg = vel; //initialize msg to be published
 
-        float pi_dist = pow(cloud.points[0].x, 2.0) + pow(cloud.points[i].y, 2.0);
+        for(int i = 0; i < cloud.points.size(); i++){
 
-        float theta = atan2(-cloud.points[i].y, -cloud.points[i].x);
-        float magnitude = 1/(pi_dist);
+            float pi_dist = pow(cloud.points[i].x, 2.0) + pow(cloud.points[i].y, 2.0);
 
-        vel_msg.linear.x += magnitude * cos(theta); //move back/forward
-        vel_msg.angular.z += magnitude * sin(theta); //rotation in (x,y) plane
+            if(pi_dist < COLLISION_TH){
+                float theta = atan2(-cloud.points[i].y, -cloud.points[i].x);
+                float magnitude = 1/(pi_dist);
 
-        */
+                vel_msg.linear.x += magnitude * cos(theta); //move back/forward
+                vel_msg.angular.z += magnitude * sin(theta) * 0.01; //rotation in (x,y) plane with a scale factor
+
+            }
+
+        }
 
         cmd_pub.publish(vel_msg);
         ROS_INFO("\nnew linear speed: %f\nnew angular_speed: %f", vel_msg.linear.x, vel_msg.angular.z);
