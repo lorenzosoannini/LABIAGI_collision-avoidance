@@ -5,7 +5,7 @@
 #include <tf/transform_listener.h>
 #include <math.h>
 
-#define T 100
+#define T 10000000000
 #define COLLISION_TH 0.05
 
 laser_geometry::LaserProjection *projector_;
