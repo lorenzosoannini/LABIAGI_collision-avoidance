@@ -33,8 +33,14 @@ trial_status=0
 python3 tools/stage_trial.py --output "$output_dir/stage-trajectory.csv" || trial_status=$?
 sleep 1
 kill -INT "$capture_pid" 2>/dev/null || true
-wait "$capture_pid"
+capture_status=0
+wait "$capture_pid" || capture_status=$?
 capture_pid=""
+# FFmpeg uses 255 for an orderly SIGINT stop; reject other recording errors.
+if [[ "$capture_status" -ne 0 && "$capture_status" -ne 255 ]]; then
+  cat "$output_dir/stage-recording.log"
+  exit "$capture_status"
+fi
 # Only resizing, frame sampling and palette conversion; no reconstructed scene.
 ffmpeg -y -loglevel warning -i "$output_dir/stage-demo.mp4" \
   -filter_complex '[0:v]fps=10,scale=900:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3' \
