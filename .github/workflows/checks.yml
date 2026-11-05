@@ -36,3 +36,38 @@ jobs:
           launch_pid=$!
           trap 'kill "$launch_pid" 2>/dev/null || true; cat /tmp/avoidance.log' EXIT
           python3 tests/ros_smoke.py
+
+  stage:
+    runs-on: ubuntu-latest
+    container: ros:noetic-ros-base-focal
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Stage and ROS dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ros-noetic-laser-geometry ros-noetic-tf ros-noetic-stage-ros xvfb xauth
+      - name: Build package
+        shell: bash
+        run: |
+          source /opt/ros/noetic/setup.bash
+          mkdir -p /tmp/ros_ws/src
+          ln -s "$GITHUB_WORKSPACE" /tmp/ros_ws/src/collision_avoidance
+          cd /tmp/ros_ws
+          catkin_make -DCMAKE_BUILD_TYPE=Release
+      - name: Run closed-loop ROS + Stage trial
+        shell: bash
+        run: |
+          source /opt/ros/noetic/setup.bash
+          source /tmp/ros_ws/devel/setup.bash
+          xvfb-run -a roslaunch collision_avoidance stage_demo.launch gui:=false > /tmp/stage.log 2>&1 &
+          launch_pid=$!
+          trap 'kill "$launch_pid" 2>/dev/null || true; cat /tmp/stage.log' EXIT
+          python3 tools/stage_trial.py --output /tmp/stage-trajectory.csv
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage-trial
+          path: |
+            /tmp/stage-trajectory.csv
+            /tmp/stage-trajectory.json
+            /tmp/stage.log

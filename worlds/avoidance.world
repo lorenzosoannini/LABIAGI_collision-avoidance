@@ -1,0 +1,42 @@
+# Self-contained Stage world. Robot is inside a 0.20 m circumscribed radius.
+resolution 0.01
+interval_sim 50
+interval_real 50
+threads 1
+window
+(
+  size [ 1000 650 ]
+  center [ 3.0 0.5 ]
+  scale 100
+  show_data 1
+)
+define demo_laser ranger
+(
+  size [ 0.04 0.04 0.04 ]
+  color "black"
+  sensor
+  (
+    range [ 0.02 8.0 ]
+    fov 360
+    samples 361
+  )
+)
+define demo_robot position
+(
+  size [ 0.28 0.28 0.25 ]
+  origin [ 0 0 0 0 ]
+  drive "diff"
+  color "blue"
+  gui_nose 1
+  localization "gps"
+  demo_laser( pose [ 0 0 0.10 0 ] )
+)
+demo_robot( name "robot" pose [ 0 0 0 0 ] )
+model
+(
+  name "obstacle"
+  pose [ 2.5 0 0 0 ]
+  size [ 0.90 0.90 0.60 ]
+  color "orange"
+  ranger_return 1
+)

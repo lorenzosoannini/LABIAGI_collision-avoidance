@@ -13,4 +13,7 @@
   <depend>tf</depend>
   <depend>laser_geometry</depend>
   <exec_depend>roslaunch</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>stage_ros</exec_depend>
 </package>
