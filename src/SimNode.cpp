@@ -2,6 +2,8 @@
 #include "collision_avoidance/watchdog.hpp"
 #include <geometry_msgs/Twist.h>
 #include <laser_geometry/laser_geometry.h>
+#include <message_filters/subscriber.h>
+#include <tf/message_filter.h>
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/PointCloud.h>
@@ -41,7 +43,9 @@ class AvoidanceNode {
       throw std::invalid_argument("Input and output velocity topics must be different");
     publisher_ = node_.advertise<geometry_msgs::Twist>(output, 1);
     command_sub_ = node_.subscribe(input, 1, &AvoidanceNode::commandCallback, this);
-    scan_sub_ = node_.subscribe(scan, 1, &AvoidanceNode::scanCallback, this);
+    scan_sub_.subscribe(node_, scan, 1);
+    scan_filter_.reset(new tf::MessageFilter<sensor_msgs::LaserScan>(scan_sub_, listener_, base_frame_, 5, node_));
+    scan_filter_->registerCallback([this](const sensor_msgs::LaserScan::ConstPtr& msg) { scanCallback(msg); });
     // A wall timer still sends stop commands when simulation time is paused.
     timer_ = node_.createWallTimer(ros::WallDuration(1.0/control_rate_), &AvoidanceNode::tick, this);
   }
@@ -115,7 +119,9 @@ class AvoidanceNode {
     publisher_.publish(msg);
   }
   ros::NodeHandle node_, private_;
-  ros::Subscriber command_sub_, scan_sub_;
+  ros::Subscriber command_sub_;
+  message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub_;
+  std::unique_ptr<tf::MessageFilter<sensor_msgs::LaserScan>> scan_filter_;
   ros::Publisher publisher_;
   ros::WallTimer timer_;
   tf::TransformListener listener_;

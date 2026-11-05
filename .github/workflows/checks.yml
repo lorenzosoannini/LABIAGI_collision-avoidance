@@ -45,7 +45,7 @@ jobs:
       - name: Install Stage and ROS dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ros-noetic-laser-geometry ros-noetic-tf ros-noetic-stage-ros xvfb xauth
+          apt-get install -y --no-install-recommends ros-noetic-laser-geometry ros-noetic-tf ros-noetic-stage-ros xvfb xauth libgl1-mesa-dri
       - name: Build package
         shell: bash
         run: |
@@ -59,7 +59,7 @@ jobs:
         run: |
           source /opt/ros/noetic/setup.bash
           source /tmp/ros_ws/devel/setup.bash
-          xvfb-run -a roslaunch collision_avoidance stage_demo.launch gui:=false > /tmp/stage.log 2>&1 &
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a roslaunch collision_avoidance stage_demo.launch gui:=true > /tmp/stage.log 2>&1 &
           launch_pid=$!
           trap 'kill "$launch_pid" 2>/dev/null || true; cat /tmp/stage.log' EXIT
           python3 tools/stage_trial.py --output /tmp/stage-trajectory.csv

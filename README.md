@@ -87,6 +87,30 @@ roslaunch collision_avoidance avoidance.launch \
   input_topic:=cmd_vel_raw output_topic:=cmd_vel
 ```
 
+### Test in Stage
+
+A self-contained Stage world is included. Once the catkin workspace is built and sourced:
+
+```bash
+roslaunch collision_avoidance stage_demo.launch
+```
+
+This opens Stage with a small differential-drive robot, a 360-degree laser, and a box blocking the direct route. In another sourced terminal, run the automated goal-following trial:
+
+```bash
+rosrun collision_avoidance stage_trial.py --output /tmp/stage-trajectory.csv
+```
+
+The upstream trial driver publishes desired commands to `cmd_vel_raw`; the avoidance node filters them; Stage consumes `cmd_vel` and produces the laser scans, TF and ground truth. The trial requires reaching the goal, deviating around the obstacle while moving, bounded output, and at least 0.095 m measured clearance (0.10 m nominal, with a 5 mm verification tolerance). It saves telemetry and a JSON result. These checks use the Stage robot's ground truth, rather than the standalone simulator's motion model.
+
+For manual control, run keyboard teleop **instead of** the automated trial, remapped as shown above. For a machine without a display, use a virtual display while retaining Stage's GUI timing:
+
+```bash
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a roslaunch collision_avoidance stage_demo.launch
+```
+
+The world sets `speedup 1`, so simulation time follows wall time. Stage's `-g` mode (`gui:=false`) runs unthrottled and is unsuitable for this wall-timer controller; it is not used for the integration check. The CI Stage job uses Xvfb and uploads its log and telemetry as an artifact. A different Stage world can be selected with `world:=/absolute/path/to/file.world`. The automated trial's goal and obstacle-clearance checks are specific to the included world; use teleop or adapt the trial when changing the scene. Existing 270-degree laser worlds need a 360-degree laser configuration to meet the current node's coverage requirement.
+
 ### Main parameters
 
 Defaults are in [config/default.yaml](config/default.yaml).
@@ -109,7 +133,7 @@ Defaults are in [config/default.yaml](config/default.yaml).
 
 ## Validation and scope
 
-The automated suite builds the standalone C++ controller, checks pass-through, steering, blocked/invalid inputs, command limits and watchdog logic, and runs all four navigation scenarios. A separate ROS Noetic job compiles the catkin package and exercises the real node with synthetic scans and command/scan timeouts.
+The automated suite builds the standalone C++ controller, checks pass-through, steering, blocked/invalid inputs, command limits and watchdog logic, and runs all four navigation scenarios. A separate ROS Noetic job compiles the catkin package and exercises the real node with synthetic scans and command/scan timeouts. A third job runs the complete ROS + Stage closed-loop trial and uploads observed trajectory data.
 
 This is a **local reactive controller**, not a complete navigation stack. It assumes a circular differential-drive robot, forward motion, static planar obstacles, and sufficiently dense laser returns. Reverse commands are rejected. Sampled obstacle points cannot establish that occluded or unobserved space is free, and a local bypass preference can get stuck in concave layouts. Actuator acceleration, wheel slip, moving obstacles, and real sensor noise are not modeled. A physical base still needs its own command-loss watchdog.
 
@@ -121,7 +145,8 @@ See the [code review and design notes](docs/review.md) for the changes from the 
 include/collision_avoidance/  ROS-independent controller and watchdog
 src/SimNode.cpp              ROS adapter: topics, TF, validation, timer
 config/                     Controller parameters
-launch/                     ROS launch file
+launch/                     ROS node and Stage demo launch files
+worlds/                     Self-contained Stage world
 tests/                      C++ checks and ROS integration smoke test
 tools/                      Deterministic simulator and GIF renderer
 assets/                     Demo GIF, preview and recorded trajectory

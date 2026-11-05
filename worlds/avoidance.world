@@ -1,7 +1,7 @@
 # Self-contained Stage world. Robot is inside a 0.20 m circumscribed radius.
 resolution 0.01
 interval_sim 50
-interval_real 50
+speedup 1
 threads 1
 window
 (

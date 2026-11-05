@@ -39,4 +39,12 @@ The GIF is rendered exclusively from the resulting CSV; it is not a video record
 - Four closed-loop scenarios: clear space, centered obstacle, offset obstacle, and two obstacles. Each requires goal arrival and at least 0.10 m actual surface clearance.
 - ROS CI build in `ros:noetic-ros-base-focal` plus synthetic-scan integration checks for pass-through, moving avoidance, missing/invalid scans, both watchdog timeouts and recovery.
 
-The local development machine has no ROS installation. ROS compile and topic integration checks therefore run in GitHub Actions; the standalone core and visualization are executed locally. No Stage or hardware test is claimed.
+The local development machine has no ROS installation. ROS compile and topic integration checks therefore run in GitHub Actions; the standalone core and visualization are executed locally. Hardware testing is not claimed. The subsequent Stage integration is described below.
+
+## Original assignment and Stage integration
+
+The [original course assignment](https://gitlab.com/grisetti/labiagi_2020_21/-/blob/master/projects_preliminary/project_collision_avoidance.txt) specifies a laser scan and desired velocity as inputs, with a collision-avoiding velocity as output, preferably deflecting toward free space. It sketches a sum of repulsive obstacle forces and the desired command. This revision preserves the input/output contract and deflection objective, but uses sampled trajectories instead of that force-summing sketch. The repository should not be read as an unchanged implementation of the suggested force law.
+
+`launch/stage_demo.launch` and `worlds/avoidance.world` add the complete simulator path: Stage laser/TF -> ROS adapter -> shared controller -> Stage motion. `tools/stage_trial.py` supplies upstream goal-following intent, records actual Stage ground truth and node outputs, and independently checks arrival, moving avoidance, output limits and clearance against the known box geometry. The Stage robot is a 0.28 m square, contained by the configured 0.20 m radius. The obstacle is a 0.90 m square at `(2.5, 0)`; the goal is `(6.5, 0)`.
+
+The automated Stage check uses a 0.095 m clearance threshold to allow 5 mm of verification tolerance around the nominal 0.10 m margin. It is an integration test in a simulator, not a hardware safety certification. It does not reuse the idealized simulator's circle geometry or its dynamics. It runs under ROS Noetic in Linux CI because the development Mac has no ROS runtime. The original GIF remains labeled as the standalone 2D demo.

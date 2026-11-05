@@ -19,7 +19,8 @@ parser.add_argument('--timeout', type=float, default=60.0, help='Wall-clock dead
 args = parser.parse_args(rospy.myargv()[1:])
 rospy.init_node('stage_avoidance_trial', anonymous=True)
 lock = threading.Lock()
-state = {'pose': None, 'output': (0., 0.), 'scan': 0., 'odom_time': 0., 'output_time': 0.}
+state = {'pose': None, 'output': (0., 0.), 'scan': 0., 'odom_time': 0., 'output_time': 0., 'minimum_gap': float('inf'), 'maximum_y': 0., 'pose_samples': 0,
+         'first_sim_time': None, 'last_sim_time': None}
 
 
 def odometry(msg):
@@ -28,6 +29,14 @@ def odometry(msg):
     with lock:
         state['pose'] = (p.x, p.y, yaw)
         state['odom_time'] = time.monotonic()
+        gap = math.hypot(max(abs(p.x-2.5)-.45, 0), max(abs(p.y)-.45, 0))-.20
+        state['minimum_gap'] = min(state['minimum_gap'], gap)
+        state['maximum_y'] = max(state['maximum_y'], abs(p.y))
+        state['pose_samples'] += 1
+        stamp = msg.header.stamp.to_sec()
+        if state['first_sim_time'] is None:
+            state['first_sim_time'] = stamp
+        state['last_sim_time'] = stamp
 
 
 def output(msg):
@@ -73,7 +82,7 @@ try:
         gap = math.hypot(max(abs(x-2.5)-.45, 0), max(abs(y)-.45, 0))-.20
         minimum = min(minimum, gap)
         max_deviation = max(max_deviation, abs(y))
-        if gap < .095:
+        if current['minimum_gap'] < .095:
             raise RuntimeError(f'Clearance violation: {gap:.3f} m')
         desired = Twist()
         desired.linear.x = min(.55, distance)
@@ -99,10 +108,16 @@ finally:
         writer = csv.writer(handle)
         writer.writerow(['t', 'x', 'y', 'yaw', 'desired_v', 'desired_w', 'v', 'w', 'clearance'])
         writer.writerows(rows)
-report = {'reached_goal': reached, 'samples': len(rows),
-          'min_surface_clearance_m': minimum, 'max_lateral_deviation_m': max_deviation,
+with lock:
+    final = state.copy()
+simulated = (final['last_sim_time'] or 0)-(final['first_sim_time'] or 0)
+wall_elapsed = time.monotonic()-start
+report = {'reached_goal': reached, 'samples': len(rows), 'ground_truth_samples': final['pose_samples'],
+          'simulated_seconds': simulated, 'wall_seconds': wall_elapsed,
+          'real_time_factor': simulated/wall_elapsed,
+          'min_surface_clearance_m': final['minimum_gap'], 'max_lateral_deviation_m': final['maximum_y'],
           'moving_avoidance_samples': moving_turns}
 args.output.with_suffix('.json').write_text(json.dumps(report, indent=2)+'\n')
 print(json.dumps(report, indent=2))
-if not reached or moving_turns < 3 or max_deviation < .4:
+if not reached or moving_turns < 3 or max_deviation < .4 or final['minimum_gap'] < .095 or not (.5 < simulated/wall_elapsed < 1.5):
     raise SystemExit('Stage trial failed: goal arrival and a moving bypass are required')
