@@ -32,7 +32,9 @@ struct Config {
 class Controller {
  public:
   explicit Controller(Config config = Config()) : cfg_(config) { cfg_.validate(); }
-  Command filter(Command desired, const std::vector<Point>& obstacles) {
+  Command filter(Command desired, const std::vector<Point>& obstacles, double sensor_age = 0.0) {
+    if (!std::isfinite(sensor_age) || sensor_age < 0.0) return stop();
+    sensor_age_ = sensor_age;
     if (!std::isfinite(desired.linear) || !std::isfinite(desired.angular) ||
         desired.linear < 0.0) return stop();  // Reverse is deliberately unsupported.
     desired.linear = std::min(desired.linear, cfg_.max_linear);
@@ -42,7 +44,8 @@ class Controller {
     if (desired.linear < 1e-6 && std::abs(desired.angular) < 1e-6) return stop();
 
     // Preserve clear user commands exactly; avoid adding steering in free space.
-    if (clearance(desired, obstacles) > 0.25) { previous_ = desired; side_ = 0; return desired; }
+    const double desired_gap = clearance(desired, obstacles);
+    if (desired_gap > 0.25 || (desired.linear < 1e-6 && desired_gap > 0.0)) { previous_ = desired; side_ = 0; return desired; }
     if (side_ == 0) {
       double lateral = 0.0;
       for (const auto& p : obstacles)
@@ -92,7 +95,7 @@ class Controller {
     for (double t = 0.0; t < cfg_.horizon + cfg_.step; t += cfg_.step) {
       const Point pos = endpoint(command, std::min(t, cfg_.horizon));
       for (const auto& p : points) {
-        gap = std::min(gap, std::hypot(p.x - pos.x, p.y - pos.y) - inflation);
+        gap = std::min(gap, std::hypot(p.x - pos.x, p.y - pos.y) - inflation - uncertainty(p));
         if (gap <= 0.0) return gap;
       }
     }
@@ -100,12 +103,18 @@ class Controller {
     const double stop_distance = command.linear * cfg_.reaction_time +
         command.linear * command.linear / (2.0 * cfg_.braking_deceleration);
     for (const auto& p : points)
-      if (p.x > 0.0 && std::abs(p.y) < inflation && p.x - inflation < stop_distance)
+      if (p.x > 0.0 && std::abs(p.y) < inflation + uncertainty(p) && p.x - inflation - uncertainty(p) < stop_distance)
         return -1.0;
     return gap;
+  }
+  double uncertainty(const Point& point) const {
+    // Bound motion of a base-frame return since acquisition: translation + rotation.
+    return cfg_.max_linear * sensor_age_ + std::hypot(point.x, point.y) *
+        std::min(2.0, cfg_.max_angular * sensor_age_);
   }
   Config cfg_;
   Command previous_;
   int side_ = 0;
+  double sensor_age_ = 0.0;
 };
 }  // namespace collision_avoidance

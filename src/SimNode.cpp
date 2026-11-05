@@ -104,9 +104,10 @@ class AvoidanceNode {
   void tick(const ros::WallTimerEvent&) {
     const auto now = ros::WallTime::now();
     ca::Command filtered;
-    if (ca::inputsFresh((now-command_stamp_).toSec(), (now-scan_stamp_).toSec()+scan_acquisition_age_,
+    const double scan_age = (now-scan_stamp_).toSec()+scan_acquisition_age_;
+    if (ca::inputsFresh((now-command_stamp_).toSec(), scan_age,
                         scan_valid_, command_timeout_, scan_timeout_))
-      filtered = controller_->filter(command_, points_);
+      filtered = controller_->filter(command_, points_, scan_age);
     else controller_->stop();
     geometry_msgs::Twist msg;
     msg.linear.x = filtered.linear;

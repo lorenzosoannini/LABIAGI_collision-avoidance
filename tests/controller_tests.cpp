@@ -11,6 +11,8 @@ int main() {
   Controller c;
   auto result = c.filter(command(0.5, 0.2), {});
   require(result.linear == 0.5 && result.angular == 0.2, "Clear commands must pass through");
+  result = c.filter(command(0, -.6), {{.45, 0.0}});
+  require(result.linear == 0 && result.angular == -.6, "Safe in-place turn must preserve the requested direction");
   std::vector<Point> front;
   for (int i=-8; i<=8; ++i) front.push_back({1.0, i*0.025});
   result = c.filter(command(0.5, 0), front);
@@ -22,6 +24,10 @@ int main() {
   }
   result = c.filter(command(.5, 0), ring);
   require(result.linear == 0.0, "Enclosed robot must not advance");
+  result = c.filter(command(.5, 0), {{1.7, 0.0}}, .3);
+  require(result.linear < .5 || std::abs(result.angular) > .1, "Aged scan must reserve motion uncertainty");
+  result = c.filter(command(.5, 0), {}, -1);
+  require(result.linear == 0, "Invalid sensor age must stop");
   result = c.filter(command(0, 0), front);
   require(result.linear == 0 && result.angular == 0, "Zero input must stop");
   result = c.filter(command(-0.4, 0), {});

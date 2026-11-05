@@ -20,7 +20,7 @@ At each update, the controller:
 
 1. Keeps the requested velocity if its predicted arc has ample clearance.
 2. Otherwise samples forward speeds and left/right turning rates over a 2.5-second horizon.
-3. Rejects paths that intersect the circular footprint plus a safety margin, including an allowance between rollout samples and an initial braking-distance check.
+3. Rejects paths that intersect the circular footprint plus a safety margin, including allowances between rollout samples, for motion since scan acquisition, and for initial braking distance.
 4. Scores the remaining arcs by progress, agreement with the requested motion, clearance, and steering consistency. A temporary bypass-side preference prevents left/right oscillation around centered obstacles.
 5. Publishes a bounded command at 20 Hz. If no admissible forward arc exists, it can stop; missing, malformed, or stale input also produces zero velocity.
 
