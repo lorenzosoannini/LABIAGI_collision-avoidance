@@ -101,6 +101,8 @@ This opens Stage with a small differential-drive robot, a 360-degree laser, and 
 rosrun collision_avoidance stage_trial.py --output /tmp/stage-trajectory.csv
 ```
 
+A [verified CI execution](https://github.com/lorenzosoannini/LABIAGI_collision-avoidance/actions/runs/42095883863) reached the goal in **15.8 simulated seconds** (16.36 wall seconds), with **0.473 m minimum surface clearance**, checked over **317 ground-truth updates**. These are measurements from one execution, not fixed expected timing or path values. The [result metadata](docs/stage-validation.json) identifies the tested source commit; the [recorded Stage trajectory](assets/stage-trajectory.csv) is also included.
+
 The upstream trial driver publishes desired commands to `cmd_vel_raw`; the avoidance node filters them; Stage consumes `cmd_vel` and produces the laser scans, TF and ground truth. The trial requires reaching the goal, deviating around the obstacle while moving, bounded output, and at least 0.095 m measured clearance (0.10 m nominal, with a 5 mm verification tolerance). It saves telemetry and a JSON result. These checks use the Stage robot's ground truth, rather than the standalone simulator's motion model.
 
 For manual control, run keyboard teleop **instead of** the automated trial, remapped as shown above. For a machine without a display, use a virtual display while retaining Stage's GUI timing:
