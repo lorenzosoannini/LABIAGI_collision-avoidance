@@ -1,11 +1,129 @@
-# LABIAGI_collision-avoidance
+# Laser-based collision avoidance
 
-A simple ROS node for collision avoidance: it uses as inputs a cmd_vel and a LaserScan and publishes a new cmd_vel that avoids obstacles.
+**A ROS 1 velocity filter that steers around obstacles instead of only stopping.** It evaluates curved local trajectories against laser returns, keeps the robot's footprint clear, and follows the operator's requested motion whenever that motion is unobstructed.
 
-Tested with `stage_ros/stageros` and `teleop_twist_keyboard_cpp/teleop_twist_keyboard`
+Built in **C++** by **Lorenzo Soannini** as a robotics course project at **Sapienza University of Rome**, then revised with a testable controller, bounded commands, watchdogs, and a reproducible demo.
 
-## Build and run 
+![Robot steering around a circular obstacle in the deterministic 2D simulation](assets/avoidance.gif)
 
-* Copy all the contents of this repository in the `src` folder of your Workspace
-* Open a terminal in your Workspace folder and build with `catkin_make`
-* Run with `rosrun collision_avoidance SimNode`
+*Recorded outputs of the same C++ controller used by the ROS node, in a deterministic 2D simulator. This is not a Stage recording or a hardware test. An external goal-following policy supplies desired velocities; the avoidance filter receives only those velocities and simulated laser points.*
+
+## How it works
+
+```text
+teleop / upstream controller ── cmd_vel_raw ──┐
+                                            ├── collision avoidance ── cmd_vel ── robot
+360-degree laser ── base_scan ── TF to base ──┘
+```
+
+At each update, the controller:
+
+1. Keeps the requested velocity if its predicted arc has ample clearance.
+2. Otherwise samples forward speeds and left/right turning rates over a 2.5-second horizon.
+3. Rejects paths that intersect the circular footprint plus a safety margin, including an allowance between rollout samples and an initial braking-distance check.
+4. Scores the remaining arcs by progress, agreement with the requested motion, clearance, and steering consistency. A temporary bypass-side preference prevents left/right oscillation around centered obstacles.
+5. Publishes a bounded command at 20 Hz. If no admissible forward arc exists, it can stop; missing, malformed, or stale input also produces zero velocity.
+
+The filter does not know the destination. Returning toward a goal after a bypass is the responsibility of the teleoperator or upstream controller.
+
+## Try it without ROS
+
+A C++14 compiler and CMake 3.10+ are enough to build and test the controller on Linux or macOS:
+
+```bash
+git clone https://github.com/lorenzosoannini/LABIAGI_collision-avoidance.git
+cd LABIAGI_collision-avoidance
+cmake -S . -B /tmp/collision-build -DBUILD_ROS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/collision-build --parallel 2
+ctest --test-dir /tmp/collision-build --output-on-failure
+/tmp/collision-build/simulate /tmp/single.csv single
+```
+
+Available scenarios: `single`, `offset`, `multiple`, and `clear`. Each simulation fails if it violates the 0.10 m surface-clearance threshold or cannot reach the goal within 80 simulated seconds. The scenario tests run the actual controller with a 360-ray scanner and differential-drive integration, rather than replaying a drawn path.
+
+To recreate the GIF (Pillow is needed only for rendering):
+
+```bash
+python3 -m pip install -r tools/requirements.txt
+/tmp/collision-build/simulate assets/trajectory.csv single
+python3 tools/render_demo.py
+```
+
+The single-obstacle demo reaches the goal region in **13.3 simulated seconds**, with a minimum robot-to-obstacle surface clearance of **about 0.135 m**. These are idealized simulation results, not hardware performance guarantees. The full telemetry is in [assets/trajectory.csv](assets/trajectory.csv).
+
+## Run with ROS 1
+
+The integration target is **ROS Noetic on Ubuntu 20.04**. The package uses `roscpp`, `geometry_msgs`, `sensor_msgs`, `tf`, and `laser_geometry`. It retains ROS 1 to match the original project.
+
+From an existing Noetic installation:
+
+```bash
+source /opt/ros/noetic/setup.bash
+mkdir -p ~/catkin_ws/src
+cd ~/catkin_ws/src
+git clone https://github.com/lorenzosoannini/LABIAGI_collision-avoidance.git collision_avoidance
+cd ~/catkin_ws
+rosdep install --from-paths src --ignore-src -r -y
+catkin_make -DCMAKE_BUILD_TYPE=Release
+source devel/setup.bash
+roslaunch collision_avoidance avoidance.launch
+```
+
+Start your simulator or robot driver separately. It must consume `cmd_vel`, publish `base_scan`, and provide the laser-to-`base_link` TF transform. The node requires near-360-degree scans (at least 6.18 rad), adequate range for its prediction horizon, and valid timestamps. A narrower scanner is rejected by this implementation.
+
+Remap your command producer to **`cmd_vel_raw`**. For example, if the original keyboard teleop package is installed:
+
+```bash
+rosrun teleop_twist_keyboard_cpp teleop_twist_keyboard cmd_vel:=cmd_vel_raw
+```
+
+Publish commands continuously while driving; the last command expires after 0.5 s. Do not run another publisher directly into the robot's `cmd_vel` while using the filter. Input and output topics must differ; the node rejects configurations that resolve them to the same topic.
+
+Topic and frame overrides are available in the launch file:
+
+```bash
+roslaunch collision_avoidance avoidance.launch \
+  scan_topic:=scan base_frame:=base_link \
+  input_topic:=cmd_vel_raw output_topic:=cmd_vel
+```
+
+### Main parameters
+
+Defaults are in [config/default.yaml](config/default.yaml).
+
+| Parameter | Default | Meaning |
+| --- | ---: | --- |
+| `robot_radius` | 0.20 m | Circumscribed footprint radius |
+| `safety_margin` | 0.10 m | Additional obstacle clearance |
+| `max_linear` | 0.60 m/s | Maximum forward speed |
+| `max_angular` | 1.50 rad/s | Maximum turn rate |
+| `horizon` | 2.50 s | Constant-command rollout horizon |
+| `rollout_step` | 0.10 s | Prediction sample interval |
+| `braking_deceleration` | 0.80 m/s² | Assumed available braking |
+| `reaction_time` | 0.40 s | Braking allowance for sensing/control delay |
+| `control_rate` | 20 Hz | Output publication frequency |
+| `command_timeout` | 0.50 s | Maximum command receipt age |
+| `scan_timeout` | 0.30 s | Maximum scan acquisition age |
+
+`reaction_time` must cover `scan_timeout` plus one control period. Set footprint and braking parameters to match the actual base. Positive-infinite laser readings represent no return; NaNs, negative infinity, and below-minimum readings invalidate the scan. TF failures and expired commands/scans cause stop output. A wall-clock timer keeps the watchdog active when simulation time pauses.
+
+## Validation and scope
+
+The automated suite builds the standalone C++ controller, checks pass-through, steering, blocked/invalid inputs, command limits and watchdog logic, and runs all four navigation scenarios. A separate ROS Noetic job compiles the catkin package and exercises the real node with synthetic scans and command/scan timeouts.
+
+This is a **local reactive controller**, not a complete navigation stack. It assumes a circular differential-drive robot, forward motion, static planar obstacles, and sufficiently dense laser returns. Reverse commands are rejected. Sampled obstacle points cannot establish that occluded or unobserved space is free, and a local bypass preference can get stuck in concave layouts. Actuator acceleration, wheel slip, moving obstacles, and real sensor noise are not modeled. A physical base still needs its own command-loss watchdog.
+
+See the [code review and design notes](docs/review.md) for the changes from the original implementation and verification details.
+
+## Repository
+
+```text
+include/collision_avoidance/  ROS-independent controller and watchdog
+src/SimNode.cpp              ROS adapter: topics, TF, validation, timer
+config/                     Controller parameters
+launch/                     ROS launch file
+tests/                      C++ checks and ROS integration smoke test
+tools/                      Deterministic simulator and GIF renderer
+assets/                     Demo GIF, preview and recorded trajectory
+docs/                       Review and design notes
+```

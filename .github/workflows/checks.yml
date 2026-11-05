@@ -1,0 +1,38 @@
+name: Build and test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B /tmp/build -DBUILD_ROS=OFF -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build /tmp/build --parallel 2
+      - run: ctest --test-dir /tmp/build --output-on-failure
+  ros:
+    runs-on: ubuntu-latest
+    container: ros:noetic-ros-base-focal
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ROS dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ros-noetic-laser-geometry ros-noetic-tf
+      - name: Build catkin package
+        shell: bash
+        run: |
+          source /opt/ros/noetic/setup.bash
+          mkdir -p /tmp/ros_ws/src
+          ln -s "$GITHUB_WORKSPACE" /tmp/ros_ws/src/collision_avoidance
+          cd /tmp/ros_ws
+          catkin_make -DCMAKE_BUILD_TYPE=Release
+      - name: Run node integration checks
+        shell: bash
+        run: |
+          source /opt/ros/noetic/setup.bash
+          source /tmp/ros_ws/devel/setup.bash
+          roslaunch collision_avoidance avoidance.launch > /tmp/avoidance.log 2>&1 &
+          launch_pid=$!
+          trap 'kill "$launch_pid" 2>/dev/null || true; cat /tmp/avoidance.log' EXIT
+          python3 tests/ros_smoke.py

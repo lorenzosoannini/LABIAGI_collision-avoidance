@@ -1,0 +1,11 @@
+robot_radius: 0.20             # metres; circumscribed radius, including attachments
+safety_margin: 0.10            # metres beyond the footprint
+max_linear: 0.60               # m/s; forward only
+max_angular: 1.50              # rad/s
+horizon: 2.50                  # seconds of constant-command prediction
+rollout_step: 0.10             # seconds between predicted positions
+braking_deceleration: 0.80     # m/s^2, assumed achievable by the base
+reaction_time: 0.40            # >= scan_timeout + one control period
+control_rate: 20.0             # Hz
+command_timeout: 0.50          # seconds since last command receipt
+scan_timeout: 0.30             # seconds since scan acquisition

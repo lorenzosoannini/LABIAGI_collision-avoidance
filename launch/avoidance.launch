@@ -1,0 +1,13 @@
+<launch>
+  <arg name="input_topic" default="cmd_vel_raw"/>
+  <arg name="output_topic" default="cmd_vel"/>
+  <arg name="scan_topic" default="base_scan"/>
+  <arg name="base_frame" default="base_link"/>
+  <node pkg="collision_avoidance" type="SimNode" name="collision_avoidance" output="screen">
+    <rosparam command="load" file="$(find collision_avoidance)/config/default.yaml"/>
+    <param name="input_topic" value="$(arg input_topic)"/>
+    <param name="output_topic" value="$(arg output_topic)"/>
+    <param name="scan_topic" value="$(arg scan_topic)"/>
+    <param name="base_frame" value="$(arg base_frame)"/>
+  </node>
+</launch>
