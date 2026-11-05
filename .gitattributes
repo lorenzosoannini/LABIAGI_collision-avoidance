@@ -1,1 +1,3 @@
 *.gif binary
+*.mp4 binary
+*.csv text eol=lf

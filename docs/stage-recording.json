@@ -1,0 +1,15 @@
+{
+  "capture": "FFmpeg x11grab of actual Stage GUI",
+  "ros_distribution": "ROS 1 Noetic",
+  "tested_commit": "6f46dda62b208bd2232d8472a6c6ad69d1aa57d8",
+  "workflow_url": "https://github.com/lorenzosoannini/LABIAGI_collision-avoidance/actions/runs/42097862570",
+  "capture_size": [
+    1000,
+    650
+  ],
+  "capture_fps": 12,
+  "gif_width": 900,
+  "gif_fps": 10,
+  "video_sha256": "8c17764c98e31daa2ddd9b0f3252d953b688e343c9ad75f84b177a8c96c9ad2b",
+  "gif_sha256": "40ef0e3d2be1c81919c10b1b80ac3c730ea26cb1cbb580a75b946b7656c8bc04"
+}

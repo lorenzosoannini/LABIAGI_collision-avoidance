@@ -4,9 +4,9 @@
 
 Built in **C++** by **Lorenzo Soannini** as a robotics course project at **Sapienza University of Rome**, then revised with a testable controller, bounded commands, watchdogs, and a reproducible demo.
 
-![Robot steering around a circular obstacle in the deterministic 2D simulation](assets/avoidance.gif)
+![Actual Stage window: the ROS-controlled robot steers around the obstacle](assets/stage-demo.gif)
 
-*Recorded outputs of the same C++ controller used by the ROS node, in a deterministic 2D simulator. This is not a Stage recording or a hardware test. An external goal-following policy supplies desired velocities; the avoidance filter receives only those velocities and simulated laser points.*
+*Direct screen recording of the actual Stage GUI, running the ROS 1 Noetic node and the included world at 1× speed under a virtual X11 display. The blue robot steers around the orange obstacle. An external goal-following policy supplies desired velocities; the avoidance filter receives only velocity commands and laser points. Frames are captured with FFmpeg, then resized and converted to GIF. [Original MP4](assets/stage-demo.mp4) · [Recording provenance](docs/stage-recording.json).*
 
 ## How it works
 
@@ -41,7 +41,7 @@ ctest --test-dir /tmp/collision-build --output-on-failure
 
 Available scenarios: `single`, `offset`, `multiple`, and `clear`. Each simulation fails if it violates the 0.10 m surface-clearance threshold or cannot reach the goal within 80 simulated seconds. The scenario tests run the actual controller with a 360-ray scanner and differential-drive integration, rather than replaying a drawn path.
 
-To recreate the GIF (Pillow is needed only for rendering):
+To recreate the separate [illustrated standalone demo](assets/avoidance.gif) (Pillow is needed only for this renderer):
 
 ```bash
 python3 -m pip install -r tools/requirements.txt
@@ -53,7 +53,7 @@ The single-obstacle demo reaches the goal region in **13.3 simulated seconds**, 
 
 ## Run with ROS 1
 
-The integration target is **ROS Noetic on Ubuntu 20.04**. The package uses `roscpp`, `geometry_msgs`, `sensor_msgs`, `tf`, and `laser_geometry`. It retains ROS 1 to match the original project.
+The original repository is a **ROS 1** package: it uses `roscpp`, `ros::NodeHandle`, and catkin. Its original ROS distribution is not recorded; the integration target for this revision is **ROS Noetic on Ubuntu 20.04**. The package uses `roscpp`, `geometry_msgs`, `sensor_msgs`, `tf`, and `laser_geometry`. It retains ROS 1 to match the original project.
 
 From an existing Noetic installation:
 
@@ -101,7 +101,7 @@ This opens Stage with a small differential-drive robot, a 360-degree laser, and 
 rosrun collision_avoidance stage_trial.py --output /tmp/stage-trajectory.csv
 ```
 
-A [verified CI execution](https://github.com/lorenzosoannini/LABIAGI_collision-avoidance/actions/runs/42095883863) reached the goal in **15.8 simulated seconds** (16.36 wall seconds), with **0.473 m minimum surface clearance**, checked over **317 ground-truth updates**. These are measurements from one execution, not fixed expected timing or path values. The [result metadata](docs/stage-validation.json) identifies the tested source commit; the [recorded Stage trajectory](assets/stage-trajectory.csv) is also included.
+A [verified CI execution](https://github.com/lorenzosoannini/LABIAGI_collision-avoidance/actions/runs/42097862570) reached the goal in **15.55 simulated seconds** (15.60 wall seconds), with **0.426 m minimum surface clearance**, checked over **312 ground-truth updates**. These are measurements from one execution, not fixed expected timing or path values. The [result metadata](docs/stage-validation.json) identifies the tested source commit; the [recorded Stage trajectory](assets/stage-trajectory.csv) is also included.
 
 The upstream trial driver publishes desired commands to `cmd_vel_raw`; the avoidance node filters them; Stage consumes `cmd_vel` and produces the laser scans, TF and ground truth. The trial requires reaching the goal, deviating around the obstacle while moving, bounded output, and at least 0.095 m measured clearance (0.10 m nominal, with a 5 mm verification tolerance). It saves telemetry and a JSON result. These checks use the Stage robot's ground truth, rather than the standalone simulator's motion model.
 
@@ -112,6 +112,17 @@ LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a roslaunch collision_avoidance stage_demo.lau
 ```
 
 The world sets `speedup 1`, so simulation time follows wall time. Stage's `-g` mode (`gui:=false`) runs unthrottled and is unsuitable for this wall-timer controller; it is not used for the integration check. The CI Stage job uses Xvfb and uploads its log and telemetry as an artifact. A different Stage world can be selected with `world:=/absolute/path/to/file.world`. The automated trial's goal and obstacle-clearance checks are specific to the included world; use teleop or adapt the trial when changing the scene. Existing 270-degree laser worlds need a 360-degree laser configuration to meet the current node's coverage requirement.
+
+### Record the Stage window
+
+From the repository root, with the catkin workspace sourced and `ffmpeg`, `xvfb`, `xauth` and Mesa installed:
+
+```bash
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1000x650x24 -nolisten tcp" \
+  bash tools/record_stage.sh /tmp/stage-capture
+```
+
+The script launches the real Stage GUI, waits for the laser stream, records the X11 display during the automated trial, and creates an MP4, GIF, preview, and measured trajectory. It does not reconstruct the scene from CSV data. The CI Stage job runs this same capture and uploads the files as an artifact. The README GIF is copied from a successful run.
 
 ### Main parameters
 
@@ -151,6 +162,6 @@ launch/                     ROS node and Stage demo launch files
 worlds/                     Self-contained Stage world
 tests/                      C++ checks and ROS integration smoke test
 tools/                      Deterministic simulator and GIF renderer
-assets/                     Demo GIF, preview and recorded trajectory
+assets/                     Actual Stage GIF plus standalone demo and telemetry
 docs/                       Review and design notes
 ```

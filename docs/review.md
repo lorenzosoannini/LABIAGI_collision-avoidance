@@ -24,13 +24,13 @@ The candidate score combines endpoint agreement with the desired arc, turning de
 
 ROS-specific concerns are isolated in the adapter: distinct remappable topics, queue size 1, a 20 Hz wall-clock timer, scan and command freshness, laser projection into the base frame, range/coverage checks, malformed-input handling, and bounded parameters. Zero output is published periodically when input is unavailable. The controller does not impose a velocity acceleration profile; physical tracking and emergency stopping depend on the base.
 
-## Demo provenance
+## Standalone demo provenance
 
 `tools/simulate.cpp` calls the same `Controller::filter` function as the ROS adapter. It raycasts a 360-beam, 8 m scanner against known circular obstacles and integrates the selected differential-drive command every 0.10 s. The controller receives the scan points, not obstacle centers, radii, world coordinates, or the goal. Full geometry is used separately to check actual clearance.
 
 The external intent policy turns toward `(6.5, 0)` from `(0, 0)` at up to 0.55 m/s. A circle centered at `(2.5, 0)` with radius 0.45 m obstructs the direct line. The robot radius is 0.20 m with a 0.10 m margin. The goal is reached within a 0.15 m tolerance. No noise, wheel dynamics or moving obstacles are included.
 
-The GIF is rendered exclusively from the resulting CSV; it is not a video recorded in ROS, Stage, or a hardware environment. The highlighted outer ring is the obstacle radius plus robot radius plus margin, not a separate measured obstacle.
+The standalone `assets/avoidance.gif` is rendered exclusively from the resulting CSV; it is not a video recorded in ROS, Stage, or a hardware environment. The highlighted outer ring is the obstacle radius plus robot radius plus margin, not a separate measured obstacle.
 
 ## Checks
 
@@ -47,6 +47,12 @@ The [original course assignment](https://gitlab.com/grisetti/labiagi_2020_21/-/b
 
 `launch/stage_demo.launch` and `worlds/avoidance.world` add the complete simulator path: Stage laser/TF -> ROS adapter -> shared controller -> Stage motion. `tools/stage_trial.py` supplies upstream goal-following intent, records actual Stage ground truth and node outputs, and independently checks arrival, moving avoidance, output limits and clearance against the known box geometry. The Stage robot is a 0.28 m square, contained by the configured 0.20 m radius. The obstacle is a 0.90 m square at `(2.5, 0)`; the goal is `(6.5, 0)`.
 
-The automated Stage check uses a 0.095 m clearance threshold to allow 5 mm of verification tolerance around the nominal 0.10 m margin. It is an integration test in a simulator, not a hardware safety certification. It does not reuse the idealized simulator's circle geometry or its dynamics. It runs under ROS Noetic in Linux CI because the development Mac has no ROS runtime. The original GIF remains labeled as the standalone 2D demo.
+The automated Stage check uses a 0.095 m clearance threshold to allow 5 mm of verification tolerance around the nominal 0.10 m margin. It is an integration test in a simulator, not a hardware safety certification. It does not reuse the idealized simulator's circle geometry or its dynamics. It runs under ROS Noetic in Linux CI because the development Mac has no ROS runtime. The standalone GIF remains available as a separate illustrated demo. The README now uses a direct screen recording of the actual Stage GUI, captured with `tools/record_stage.sh`.
 
 The verified real-time Stage execution is recorded in `stage-validation.json`, with the tested source commit and workflow URL, and `assets/stage-trajectory.csv`. All three jobs (core, ROS, Stage) passed for that source revision. Documentation and telemetry additions after that revision do not change executable code.
+
+## Screen-recording provenance
+
+The Stage GUI runs inside a 1000×650 virtual X11 display. FFmpeg's `x11grab` captures that display at 12 fps while the real ROS node, Stage physics, TF, laser and upstream goal driver execute. The GIF conversion samples 10 fps, resizes to 900 pixels wide, and reduces the palette; it does not redraw, synthesize or interpolate the robot or environment. The capture is included in the Stage CI artifact alongside the MP4 and verification telemetry.
+
+The original source uses `ros/ros.h`, `roscpp`, `ros::NodeHandle`, and catkin, establishing that it targets ROS 1. The source material does not establish the original ROS distribution; Noetic is the explicitly chosen integration environment for this revision.

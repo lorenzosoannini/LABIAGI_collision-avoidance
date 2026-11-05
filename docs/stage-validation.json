@@ -1,13 +1,13 @@
 {
   "reached_goal": true,
-  "samples": 308,
-  "ground_truth_samples": 317,
-  "simulated_seconds": 15.799999999999999,
-  "wall_seconds": 16.358372438000004,
-  "real_time_factor": 0.965866259610099,
-  "min_surface_clearance_m": 0.4731333265359536,
-  "max_lateral_deviation_m": 2.093502148876443,
-  "moving_avoidance_samples": 104,
-  "tested_commit": "4e0ff1517c0898402f6f1d99a6a9e333388d3db5",
-  "workflow_url": "https://github.com/lorenzosoannini/LABIAGI_collision-avoidance/actions/runs/42095883863"
+  "samples": 301,
+  "ground_truth_samples": 312,
+  "simulated_seconds": 15.549999999999999,
+  "wall_seconds": 15.59947513100002,
+  "real_time_factor": 0.9968284105340377,
+  "min_surface_clearance_m": 0.4263343942928565,
+  "max_lateral_deviation_m": 2.012824825718147,
+  "moving_avoidance_samples": 97,
+  "tested_commit": "6f46dda62b208bd2232d8472a6c6ad69d1aa57d8",
+  "workflow_url": "https://github.com/lorenzosoannini/LABIAGI_collision-avoidance/actions/runs/42097862570"
 }
