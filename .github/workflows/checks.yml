@@ -45,7 +45,7 @@ jobs:
       - name: Install Stage and ROS dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ros-noetic-laser-geometry ros-noetic-tf ros-noetic-stage-ros xvfb xauth libgl1-mesa-dri
+          apt-get install -y --no-install-recommends ros-noetic-laser-geometry ros-noetic-tf ros-noetic-stage-ros xvfb xauth libgl1-mesa-dri ffmpeg
       - name: Build package
         shell: bash
         run: |
@@ -59,10 +59,7 @@ jobs:
         run: |
           source /opt/ros/noetic/setup.bash
           source /tmp/ros_ws/devel/setup.bash
-          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a roslaunch collision_avoidance stage_demo.launch gui:=true > /tmp/stage.log 2>&1 &
-          launch_pid=$!
-          trap 'kill "$launch_pid" 2>/dev/null || true; cat /tmp/stage.log' EXIT
-          python3 tools/stage_trial.py --output /tmp/stage-trajectory.csv
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1000x650x24 -nolisten tcp" bash tools/record_stage.sh /tmp
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,3 +68,7 @@ jobs:
             /tmp/stage-trajectory.csv
             /tmp/stage-trajectory.json
             /tmp/stage.log
+            /tmp/stage-demo.mp4
+            /tmp/stage-demo.gif
+            /tmp/stage-demo-preview.png
+            /tmp/stage-recording.log
