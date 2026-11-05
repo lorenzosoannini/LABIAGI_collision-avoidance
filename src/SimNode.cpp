@@ -9,6 +9,7 @@
 #include <sensor_msgs/PointCloud.h>
 #include <tf/transform_listener.h>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace ca = collision_avoidance;
@@ -49,8 +50,13 @@ class AvoidanceNode {
     // A wall timer still sends stop commands when simulation time is paused.
     timer_ = node_.createWallTimer(ros::WallDuration(1.0/control_rate_), &AvoidanceNode::tick, this);
   }
+  ~AvoidanceNode() {
+    timer_.stop();
+    scan_filter_.reset();
+  }
  private:
   void commandCallback(const geometry_msgs::Twist::ConstPtr& msg) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
     command_stamp_ = ros::WallTime::now();
     command_.linear = msg->linear.x;
     command_.angular = msg->angular.z;
@@ -62,6 +68,7 @@ class AvoidanceNode {
       command_ = ca::Command();
   }
   void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
     scan_valid_ = false;  // A malformed scan immediately invalidates previous geometry.
     const double span = msg->angle_increment * (msg->ranges.empty() ? 0 : msg->ranges.size()-1);
     const double age = (ros::Time::now() - msg->header.stamp).toSec();
@@ -106,6 +113,7 @@ class AvoidanceNode {
     }
   }
   void tick(const ros::WallTimerEvent&) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
     const auto now = ros::WallTime::now();
     ca::Command filtered;
     const double scan_age = (now-scan_stamp_).toSec()+scan_acquisition_age_;
@@ -118,6 +126,7 @@ class AvoidanceNode {
     msg.angular.z = filtered.angular;
     publisher_.publish(msg);
   }
+  std::mutex state_mutex_;
   ros::NodeHandle node_, private_;
   ros::Subscriber command_sub_;
   message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub_;
